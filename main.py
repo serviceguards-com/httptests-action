@@ -23,7 +23,9 @@ class IntegrationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print("Total assertions: %s" % cls.totalAssertions)
+        print("\n" + "="*60)
+        print(f"Total assertions passed: {cls.totalAssertions}")
+        print("="*60)
 
     def check(self):
         # Opening JSON file
@@ -58,6 +60,7 @@ class IntegrationTests(unittest.TestCase):
         for path in paths:
             # Throttle request to prevent limit_req
             sleep(sleepReq)
+            print(f"\n  → Testing: {method} {host}{path}")
             response = request(host, path, method, additionalRequestHeaders, data)
 
             test_name = '%s %s %s (%s)' % (method, host, path, expectedStatus)
@@ -69,6 +72,7 @@ class IntegrationTests(unittest.TestCase):
     def do_test_status_code(self, test_name, expectedStatus, status_code):
         with self.subTest(msg='%s => Test Status Code' % test_name):
             self.assertEqual(expectedStatus, status_code)
+            print(f"    ✓ Status code: {status_code} (expected {expectedStatus})")
             self.totalAssertions += 1
 
     # Response Headers
@@ -78,10 +82,12 @@ class IntegrationTests(unittest.TestCase):
                 headerKey = header[0].lower()
                 if (len(header) == 1):
                     self.assertTrue(headerKey in headers)
+                    print(f"    ✓ Response header present: {headerKey}")
                     self.totalAssertions += 1
                 else:
                     expectedValue = header[1]
                     self.assertEqual(headers[headerKey], expectedValue)
+                    print(f"    ✓ Response header: {headerKey} = {headers[headerKey]}")
                     self.totalAssertions += 1
 
     # Request Headers to Upstream
@@ -98,6 +104,7 @@ class IntegrationTests(unittest.TestCase):
 
                 if (len(header) == 1):
                     self.assertTrue(headerKey in body['headers'])
+                    print(f"    ✓ Request header forwarded: {headerKey}")
                     self.totalAssertions += 1
                 elif (len(header) == 2):
                     expectedValue = header[1]
@@ -105,9 +112,11 @@ class IntegrationTests(unittest.TestCase):
                     # Check for deleted headers
                     if expectedValue == "$deleted":
                         self.assertTrue(headerKey not in body['headers'])
+                        print(f"    ✓ Request header removed: {headerKey}")
                         self.totalAssertions += 1
                     else:
                         self.assertEqual(body['headers'][headerKey], expectedValue)
+                        print(f"    ✓ Request header: {headerKey} = {body['headers'][headerKey]}")
                         self.totalAssertions += 1
 
 def request(host, path, method, additionalRequestHeaders, data):
