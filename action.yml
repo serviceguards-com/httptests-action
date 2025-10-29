@@ -1,0 +1,85 @@
+name: "HTTPTests Runner"
+description: "Discover .httptests suites, generate docker-compose from config.yml, run services and tests"
+author: "HTTPTests"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  working-directory:
+    description: "Directory to start scanning from"
+    required: false
+    default: "."
+  python-version:
+    description: "Python version to use"
+    required: false
+    default: "3.x"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install PyYAML requests
+
+    - name: Generate and run suites
+      shell: bash
+      env:
+        WORKDIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+
+        scan_root="${WORKDIR}"
+        echo "Scanning for .httptests under: ${scan_root}"
+
+        mapfile -t suites < <(find "${scan_root}" -type d -name .httptests | sort)
+        if [[ ${#suites[@]} -eq 0 ]]; then
+          echo "No .httptests directories found under ${scan_root}. Exiting."
+          exit 1
+        fi
+
+        # Ensure generator is available
+        gen_script_path="${GITHUB_ACTION_PATH}/generate_docker_compose.py"
+        echo "Using generator: ${gen_script_path}"
+
+        status_overall=0
+
+        for suite_dir in "${suites[@]}"; do
+          echo -e "\n=== Processing suite: ${suite_dir} ==="
+          suite_parent="$(dirname "${suite_dir}")"
+          compose_file="${suite_dir}/docker-compose.yml"
+          test_file="${suite_dir}/test.json"
+          project_name="httptests_$(echo "${suite_parent}" | tr '/\\' '_' | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]')"
+
+          if [[ ! -f "${test_file}" ]]; then
+            echo "Warning: Missing test.json in ${suite_dir}, skipping."
+            continue
+          fi
+
+          echo "Generating compose file at ${compose_file} (project: ${project_name})"
+          python "${gen_script_path}" \
+            --suite "${suite_dir}" \
+            --output "${compose_file}" || { echo "Compose generation failed"; status_overall=1; continue; }
+
+          echo "Bringing up services for ${project_name}"
+          docker compose -f "${compose_file}" -p "${project_name}" up -d --build
+
+          echo "Waiting for services to be ready"
+          sleep 5
+
+          echo "Running tests for ${project_name}"
+          python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}" || status_overall=$?
+
+          echo "Tearing down services for ${project_name}"
+          docker compose -f "${compose_file}" -p "${project_name}" down -v
+        done
+
+        exit ${status_overall}
+
