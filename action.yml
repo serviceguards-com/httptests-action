@@ -56,7 +56,14 @@ runs:
           suite_parent="$(dirname "${suite_dir}")"
           compose_file="${suite_dir}/docker-compose.yml"
           test_file="${suite_dir}/test.json"
-          project_name="httptests_$(echo "${suite_parent}" | tr '/\\' '_' | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]')"
+          
+          # Generate project name, handling edge cases
+          suffix="$(echo "${suite_parent}" | tr '/\\' '_' | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]' | sed 's/[_-]*$//' | sed 's/^[_-]*//')"
+          if [[ -z "${suffix}" || "${suffix}" == "." ]]; then
+            project_name="httptests"
+          else
+            project_name="httptests-${suffix}"
+          fi
 
           if [[ ! -f "${test_file}" ]]; then
             echo "Warning: Missing test.json in ${suite_dir}, skipping."
