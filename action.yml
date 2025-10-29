@@ -26,8 +26,8 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install PyYAML requests
+        python -m pip install --upgrade pip -q
+        pip install PyYAML requests -q
 
     - name: Generate and run suites
       shell: bash
@@ -70,22 +70,18 @@ runs:
             continue
           fi
 
-          echo "Generating compose file at ${compose_file} (project: ${project_name})"
           python "${gen_script_path}" \
             --suite "${suite_dir}" \
-            --output "${compose_file}" || { echo "Compose generation failed"; status_overall=1; continue; }
+            --output "${compose_file}" > /dev/null 2>&1 || { echo "Compose generation failed"; status_overall=1; continue; }
 
-          echo "Bringing up services for ${project_name}"
-          docker compose -f "${compose_file}" -p "${project_name}" up -d --build
+          docker compose -f "${compose_file}" -p "${project_name}" up -d --build > /dev/null 2>&1
 
-          echo "Waiting for services to be ready"
           sleep 5
 
           echo "Running tests for ${project_name}"
           python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}" || status_overall=$?
 
-          echo "Tearing down services for ${project_name}"
-          docker compose -f "${compose_file}" -p "${project_name}" down -v
+          docker compose -f "${compose_file}" -p "${project_name}" down -v > /dev/null 2>&1
         done
 
         exit ${status_overall}
