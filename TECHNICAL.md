@@ -79,6 +79,9 @@ The `config.yml` file defines how Docker Compose services should be configured:
 
 ```yaml
 mock:
+  additional_ports:
+    - 5001
+    - 8080
   network_aliases:
     - store
     - api-backend
@@ -91,9 +94,30 @@ nginx:
 
 #### Supported Fields
 
+**`mock.http_port`** (integer, optional)
+- HTTP port number for the mock service to listen on
+- **Default: `80`** - Always available by default
+- Legacy field `port` is also supported and maps to `http_port`
+- Only override if you need to change the primary HTTP port
+- Example: `8080`, `3000`
+
+**`mock.https_port`** (integer, optional)
+- HTTPS port number for the mock service to listen on
+- **Default: `443`** - Always available by default
+- Only override if you need to change the primary HTTPS port
+- Example: `8443`
+
+**`mock.additional_ports`** (list, optional)
+- Additional ports beyond 80 and 443 to make the mock service accessible on
+- Uses socat port forwarders with the same network aliases
+- The mock service always listens on ports 80 (HTTP) and 443 (HTTPS) by default
+- Use this when your nginx config proxies to non-standard ports like 5001, 8080, etc.
+- Example: `[5001, 8080]`
+
 **`mock.network_aliases`** (list)
 - Network aliases for the mock HTTP echo service
 - Allows Nginx to proxy requests to these hostnames
+- All aliases are accessible on all configured ports (http_port, https_port, and additional_ports)
 - Example: `store`, `api-backend`, `payment-service`
 
 **`nginx.environment`** (dict or list)
@@ -156,6 +180,18 @@ services:
         aliases:
           - <your-network-aliases>
   
+  # Optional: Port forwarders (if additional_ports configured)
+  mock-forwarder-5001:
+    container_name: httptests_forwarder_5001
+    image: alpine/socat:latest
+    command: "TCP-LISTEN:5001,fork,reuseaddr TCP:mock:80"
+    networks:
+      default:
+        aliases:
+          - <your-network-aliases>
+    depends_on:
+      - mock
+  
   nginx:
     container_name: httptests_nginx
     build:
@@ -167,9 +203,12 @@ services:
       - default
     depends_on:
       - mock
+      # - mock-forwarder-5001  # Added if additional_ports configured
     environment:
       <your-environment-variables>
 ```
+
+When `additional_ports` are configured, the action automatically creates socat forwarder services that listen on the additional ports and forward traffic to the main mock service. This allows the same service to be accessible on multiple ports using the same network aliases.
 
 ## Requirements
 
