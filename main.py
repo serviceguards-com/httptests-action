@@ -73,7 +73,7 @@ class IntegrationTests(unittest.TestCase):
     def do_test_status_code(self, test_name, expectedStatus, status_code):
         with self.subTest(msg='%s => Test Status Code' % test_name):
             if expectedStatus != status_code:
-                print(f"    ✗ Status code mismatch!")
+                print(f"    ❌ Status code mismatch!")
                 print(f"      Expected: {expectedStatus}")
                 print(f"      Got: {status_code}")
                 self.fail(f"Status code {status_code} does not match expected {expectedStatus}")
@@ -87,7 +87,7 @@ class IntegrationTests(unittest.TestCase):
                 headerKey = header[0].lower()
                 if (len(header) == 1):
                     if headerKey not in headers:
-                        print(f"    ✗ Response header missing: {headerKey}")
+                        print(f"    ❌ Response header missing: {headerKey}")
                         print(f"      Available headers: {', '.join(headers.keys())}")
                         self.fail(f"Response header '{headerKey}' not found in response")
                     print(f"    ✓ Response header present: {headerKey}")
@@ -95,12 +95,12 @@ class IntegrationTests(unittest.TestCase):
                 else:
                     expectedValue = header[1]
                     if headerKey not in headers:
-                        print(f"    ✗ Response header missing: {headerKey}")
+                        print(f"    ❌ Response header missing: {headerKey}")
                         print(f"      Expected value: {expectedValue}")
                         print(f"      Available headers: {', '.join(headers.keys())}")
                         self.fail(f"Response header '{headerKey}' not found in response")
                     elif headers[headerKey] != expectedValue:
-                        print(f"    ✗ Response header mismatch: {headerKey}")
+                        print(f"    ❌ Response header mismatch: {headerKey}")
                         print(f"      Expected: {expectedValue}")
                         print(f"      Got: {headers[headerKey]}")
                         self.fail(f"Response header '{headerKey}' has value '{headers[headerKey]}', expected '{expectedValue}'")
@@ -117,7 +117,7 @@ class IntegrationTests(unittest.TestCase):
             try:
                 body = json.loads(text)
             except json.JSONDecodeError as e:
-                print(f"    ✗ Failed to parse response as JSON")
+                print(f"    ❌ Failed to parse response as JSON")
                 print(f"      Error: {e}")
                 print(f"      Response text (first 500 chars): {text[:500]}")
                 self.fail(f"Response body is not valid JSON: {str(e)}")
@@ -130,7 +130,7 @@ class IntegrationTests(unittest.TestCase):
 
                 if (len(header) == 1):
                     if headerKey not in body.get('headers', {}):
-                        print(f"    ✗ Request header not forwarded: {headerKey}")
+                        print(f"    ❌ Request header not forwarded: {headerKey}")
                         print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
                         self.fail(f"Request header '{headerKey}' was not forwarded to upstream")
                     print(f"    ✓ Request header forwarded: {headerKey}")
@@ -141,19 +141,19 @@ class IntegrationTests(unittest.TestCase):
                     # Check for deleted headers
                     if expectedValue == "$deleted":
                         if headerKey in body.get('headers', {}):
-                            print(f"    ✗ Request header should be removed but was found: {headerKey}")
+                            print(f"    ❌ Request header should be removed but was found: {headerKey}")
                             print(f"      Value: {body['headers'][headerKey]}")
                             self.fail(f"Request header '{headerKey}' should be removed but was present with value '{body['headers'][headerKey]}'")
                         print(f"    ✓ Request header removed: {headerKey}")
                         self.totalAssertions += 1
                     else:
                         if headerKey not in body.get('headers', {}):
-                            print(f"    ✗ Request header missing: {headerKey}")
+                            print(f"    ❌ Request header missing: {headerKey}")
                             print(f"      Expected value: {expectedValue}")
                             print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
                             self.fail(f"Request header '{headerKey}' not found in forwarded headers")
                         elif body['headers'][headerKey] != expectedValue:
-                            print(f"    ✗ Request header mismatch: {headerKey}")
+                            print(f"    ❌ Request header mismatch: {headerKey}")
                             print(f"      Expected: {expectedValue}")
                             print(f"      Got: {body['headers'][headerKey]}")
                             self.fail(f"Request header '{headerKey}' has value '{body['headers'][headerKey]}', expected '{expectedValue}'")
@@ -174,7 +174,7 @@ def wait_for_service(max_wait=60, check_interval=2):
         try:
             # Try a simple connection to the service
             response = requests.get(f"{base_url}/", timeout=2)
-            print(f"✓ Service is ready! (took {time() - start_time:.1f}s)\n")
+            print(f"✅ Service is ready! (took {time() - start_time:.1f}s)\n")
             sys.stdout.flush()
             return True
         except requests.exceptions.ConnectionError:
