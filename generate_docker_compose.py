@@ -38,6 +38,12 @@ def generate_compose(suite_dir: str, config: Dict[str, Any]) -> Dict[str, Any]:
     nginx_cfg = config.get("nginx", {}) or {}
 
     network_aliases = to_list(mock_cfg.get("network_aliases") or [])
+    
+    # Support both 'port' (legacy) and 'http_port' (new)
+    http_port = mock_cfg.get("http_port") or mock_cfg.get("port", 80)
+    https_port = mock_cfg.get("https_port", 443)
+    additional_ports = to_list(mock_cfg.get("additional_ports") or [])
+    
     nginx_env = nginx_cfg.get("environment") or {}
 
     # Validate Dockerfile
@@ -45,16 +51,19 @@ def generate_compose(suite_dir: str, config: Dict[str, Any]) -> Dict[str, Any]:
     if not os.path.isfile(dockerfile_path):
         raise FileNotFoundError(f"Dockerfile not found at expected location: {dockerfile_path}")
 
+    # Build environment list for mock service
+    mock_environment = [
+        f"HTTP_PORT={http_port}",
+        f"HTTPS_PORT={https_port}",
+    ]
+
     compose: Dict[str, Any] = {
         "version": "3.9",
         "services": {
             "mock": {
                 "container_name": "httptests_mock",
                 "image": "mendhak/http-https-echo:18",
-                "environment": [
-                    "HTTP_PORT=80",
-                    "HTTPS_PORT=443",
-                ],
+                "environment": mock_environment,
                 "networks": {
                     "default": {
                         "aliases": network_aliases or [],
@@ -81,6 +90,25 @@ def generate_compose(suite_dir: str, config: Dict[str, Any]) -> Dict[str, Any]:
             compose["services"]["nginx"]["environment"] = nginx_env
         else:
             compose["services"]["nginx"]["environment"] = to_list(nginx_env)
+
+    # Add port forwarders for additional ports
+    # This allows the mock service to be accessible on multiple ports using the same network aliases
+    if additional_ports:
+        for port in additional_ports:
+            service_name = f"mock-forwarder-{port}"
+            compose["services"][service_name] = {
+                "container_name": f"httptests_forwarder_{port}",
+                "image": "alpine/socat:latest",
+                "command": f"TCP-LISTEN:{port},fork,reuseaddr TCP:mock:{http_port}",
+                "networks": {
+                    "default": {
+                        "aliases": network_aliases or [],  # Share the same network aliases as mock
+                    }
+                },
+                "depends_on": ["mock"],
+            }
+            # Update nginx dependencies to include port forwarders
+            compose["services"]["nginx"]["depends_on"].append(service_name)
 
     return compose
 
