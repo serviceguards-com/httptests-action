@@ -166,14 +166,16 @@ def wait_for_service(max_wait=60, check_interval=2):
     start_time = time()
     attempt = 0
     
-    print(f"\n🔍 Waiting for service to be ready (max {max_wait}s)...")
+    print(f"🔍 Waiting for service to be ready (max {max_wait}s)...")
+    sys.stdout.flush()
     
     while time() - start_time < max_wait:
         attempt += 1
         try:
             # Try a simple connection to the service
             response = requests.get(f"{base_url}/", timeout=2)
-            print(f"✓ Service is ready! (took {time() - start_time:.1f}s)")
+            print(f"✓ Service is ready! (took {time() - start_time:.1f}s)\n")
+            sys.stdout.flush()
             return True
         except requests.exceptions.ConnectionError:
             elapsed = time() - start_time

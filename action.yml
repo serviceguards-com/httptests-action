@@ -76,14 +76,14 @@ runs:
         compose_file="${suite_dir}/docker-compose.yml"
 
         # Generate docker-compose.yml
-        echo "Generating docker-compose.yml..."
+        echo "🔧 Configuring environment..."
         if ! python "${gen_script_path}" --suite "${suite_dir}" --output "${compose_file}" >/dev/null 2>&1; then
           echo "❌ ERROR: Failed to generate test configuration"
           exit 1
         fi
 
         # Start Docker environment
-        echo "Starting Docker environment..."
+        echo "🚀 Starting environment..."
         if ! docker compose -f "${compose_file}" -p "${project_name}" up -d --build >/dev/null 2>&1; then
           echo "❌ ERROR: Failed to start test environment"
           exit 1
