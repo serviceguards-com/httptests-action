@@ -76,7 +76,7 @@ class IntegrationTests(unittest.TestCase):
                 print(f"    ✗ Status code mismatch!")
                 print(f"      Expected: {expectedStatus}")
                 print(f"      Got: {status_code}")
-            self.assertEqual(expectedStatus, status_code)
+                self.fail(f"Status code {status_code} does not match expected {expectedStatus}")
             print(f"    ✓ Status code: {status_code} (expected {expectedStatus})")
             self.totalAssertions += 1
 
@@ -112,18 +112,21 @@ class IntegrationTests(unittest.TestCase):
         with self.subTest(msg='%s => Request Headers' % test_name):
             if "$collectionheaders" in expectedRequestHeadersToUpstream:
                 expectedRequestHeadersToUpstream += self.collectionHeaders
+            
+            # Try to parse JSON once before processing headers
+            try:
+                body = json.loads(text)
+            except json.JSONDecodeError as e:
+                print(f"    ✗ Failed to parse response as JSON")
+                print(f"      Error: {e}")
+                print(f"      Response text (first 500 chars): {text[:500]}")
+                self.fail(f"Response body is not valid JSON: {str(e)}")
+                return
+            
             for header in expectedRequestHeadersToUpstream:
                 headerKey = header[0].lower()
                 if headerKey == "$collectionheaders":
                     continue
-
-                try:
-                    body = json.loads(text)
-                except json.JSONDecodeError as e:
-                    print(f"    ✗ Failed to parse response as JSON")
-                    print(f"      Error: {e}")
-                    print(f"      Response text (first 500 chars): {text[:500]}")
-                    raise
 
                 if (len(header) == 1):
                     if headerKey not in body.get('headers', {}):
