@@ -5,6 +5,45 @@ All notable changes to HTTPTests will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-10-30
+
+### Changed
+- **BREAKING**: Removed auto-discovery of `.httptests` directories
+  - Now requires explicit `httptests-directory` input parameter
+  - Processes only a single `.httptests` folder per action run
+  - Removed `working-directory` input parameter
+  - For multiple test suites, use separate workflow jobs or matrix strategy
+
+### Migration Guide
+Before (v1.x):
+```yaml
+- uses: serviceguards-com/httptests-action@v1
+  with:
+    working-directory: ./services
+```
+
+After (v2.0):
+```yaml
+- uses: serviceguards-com/httptests-action@v2
+  with:
+    httptests-directory: ./services/api-gateway
+```
+
+The action will automatically discover the `.httptests` folder within the specified directory.
+
+For multiple test suites, use a matrix strategy:
+```yaml
+strategy:
+  matrix:
+    test-suite:
+      - ./service-a
+      - ./service-b
+steps:
+  - uses: serviceguards-com/httptests-action@v2
+    with:
+      httptests-directory: ${{ matrix.test-suite }}
+```
+
 ## [1.1.0] - 2025-10-30
 
 ### Added

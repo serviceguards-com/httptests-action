@@ -1,14 +1,14 @@
 # HTTPTests Runner Action
 
-Reusable GitHub Action that discovers `.httptests/` test suites in your repository, generates Docker Compose configurations, and executes integration tests against your Nginx configurations.
+Reusable GitHub Action that runs integration tests for a specified `.httptests/` test suite, generates Docker Compose configurations, and executes integration tests against your Nginx configurations.
 
 ## Features
 
-- 🔍 Automatically discovers all `.httptests/` directories in your repository
-- 🐳 Generates `docker-compose.yml` from `config.yml` for each test suite
-- 🧪 Runs integration tests with isolated Docker environments
+- 🐳 Generates `docker-compose.yml` from `config.yml` for the test suite
+- 🧪 Runs integration tests with isolated Docker environment
 - 🧹 Automatic cleanup after test execution
 - 📦 Ready for GitHub Marketplace distribution
+- 🔄 Matrix strategy support for testing multiple suites in parallel
 
 ## Usage
 
@@ -28,7 +28,7 @@ jobs:
       - name: Run HTTPTests
         uses: ./httptests-action  # Reference the action from your repository
         with:
-          working-directory: .
+          httptests-directory: ./your-service
           python-version: '3.x'
 ```
 
@@ -36,9 +36,9 @@ jobs:
 
 ```yaml
 - name: Run HTTPTests
-  uses: your-username/httptests-action@v1
+  uses: your-username/httptests-action@v2
   with:
-    working-directory: .
+    httptests-directory: ./your-service
     python-version: '3.x'
 ```
 
@@ -46,7 +46,7 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `working-directory` | Root directory to start scanning for `.httptests/` folders | No | `.` |
+| `httptests-directory` | Path to directory containing `.httptests` folder | Yes | - |
 | `python-version` | Python version to use for test execution | No | `3.x` |
 
 ## Expected Repository Structure
@@ -130,12 +130,13 @@ See the main [README.md](README.md) for complete test configuration documentatio
 
 ## How It Works
 
-1. **Discovery**: Scans the `working-directory` for all `.httptests/` folders
-2. **Generation**: For each suite, generates `docker-compose.yml` from `config.yml`
-3. **Build**: Builds the Nginx container from the Dockerfile in the parent directory
-4. **Start**: Starts mock and Nginx services with isolated Docker Compose project names
-5. **Test**: Runs `main.py` against the `test.json` file
-6. **Cleanup**: Tears down containers and removes volumes
+1. **Discovery**: Looks for `.httptests/` folder within the specified directory
+2. **Validation**: Verifies the `.httptests/` directory exists and contains `test.json`
+3. **Generation**: Generates `docker-compose.yml` from `config.yml`
+4. **Build**: Builds the Nginx container from the Dockerfile in the parent directory
+5. **Start**: Starts mock and Nginx services with isolated Docker Compose project name
+6. **Test**: Runs `main.py` against the `test.json` file
+7. **Cleanup**: Tears down containers and removes volumes
 
 ## Generated Docker Compose Structure
 
@@ -178,32 +179,44 @@ services:
 
 ## Multiple Test Suites
 
-The action automatically processes **all** `.httptests/` directories found in your repository. Each suite runs in isolation with its own Docker Compose project to avoid conflicts.
+To test multiple `.httptests/` directories, use a matrix strategy. Each suite runs in isolation with its own Docker Compose project to avoid conflicts.
 
-Example output:
+Example workflow:
+```yaml
+name: HTTPTests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-suite:
+          - ./service-a
+          - ./service-b
+          - ./service-c
+    steps:
+      - uses: actions/checkout@v4
+      - uses: your-username/httptests-action@v2
+        with:
+          httptests-directory: ${{ matrix.test-suite }}
 ```
-Scanning for .httptests under: .
-Found: ./service-a/.httptests
-Found: ./service-b/.httptests
 
-=== Processing suite: ./service-a/.httptests ===
-Generating compose file...
-Bringing up services for httptests_service_a...
-Running tests...
-Tearing down services...
-
-=== Processing suite: ./service-b/.httptests ===
-Generating compose file...
-Bringing up services for httptests_service_b...
-Running tests...
-Tearing down services...
-```
+Each test suite will run in parallel as a separate job with its own isolated Docker environment.
 
 ## Troubleshooting
 
-### No .httptests directories found
+### Directory not found
 
-Ensure your test suites are named exactly `.httptests` (with the leading dot) and contain at least a `test.json` file.
+Ensure the path specified in `httptests-directory` exists. The action will automatically look for a `.httptests` folder within that directory.
+
+### .httptests directory not found
+
+Ensure the specified directory contains a `.httptests` folder (with the leading dot).
+
+### Missing test.json
+
+The `.httptests` directory must contain a `test.json` file with test definitions.
 
 ### Dockerfile not found
 

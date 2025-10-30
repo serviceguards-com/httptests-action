@@ -2,7 +2,7 @@
 
 > Automated HTTP integration testing for GitHub Actions with Docker isolation
 
-Test your APIs, proxies, and microservices in CI/CD with zero configuration. HTTPTests automatically discovers test suites, spins up Docker environments, and validates your HTTP services.
+Test your APIs, proxies, and microservices in CI/CD with zero configuration. HTTPTests spins up Docker environments and validates your HTTP services.
 
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue?logo=github)](https://github.com/marketplace/actions/httptests-runner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -10,7 +10,6 @@ Test your APIs, proxies, and microservices in CI/CD with zero configuration. HTT
 ## Features
 
 - **Zero Configuration** - Drop a `.httptests` folder in your repo and go
-- **Auto-Discovery** - Automatically finds and runs all test suites in your repository
 - **Docker Isolated** - Each test suite runs in its own isolated Docker environment
 - **Multi-Service** - Test complex setups with proxies, APIs, and mock services
 - **CI Ready** - Built specifically for GitHub Actions workflows
@@ -75,6 +74,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: serviceguards-com/httptests-action@v1
+        with:
+          httptests-directory: .
 ```
 
 That's it! Your HTTP integration tests will now run on every push and pull request.
@@ -99,7 +100,6 @@ Verify load balancer behavior, health checks, failover scenarios, and request di
 |---------|-----------|--------------|----------------|------------------|
 | **Setup Time** | < 5 minutes | Manual | 15-30 minutes | Hours |
 | **Docker Isolation** | ✅ Built-in | ❌ Manual | ❌ Manual | ❌ Manual |
-| **Auto-Discovery** | ✅ Yes | ❌ No | ❌ No | ⚠️ Maybe |
 | **Multi-Service** | ✅ Yes | ⚠️ Complex | ⚠️ Limited | ⚠️ Custom |
 | **CI Integration** | ✅ Native | ⚠️ Manual | ✅ Yes | ⚠️ Custom |
 | **Learning Curve** | Low | Low | Medium | High |
@@ -148,18 +148,6 @@ Explore real-world examples in the [httptests-example repository](https://github
 
 ## Advanced Features
 
-### Multiple Test Suites
-HTTPTests automatically discovers and runs all `.httptests` directories:
-
-```
-repo/
-├── service-a/.httptests/
-├── service-b/.httptests/
-└── service-c/.httptests/
-```
-
-Each suite runs in isolation with its own Docker environment.
-
 ### Collection Headers
 Define headers once, use them in all tests:
 
@@ -198,7 +186,7 @@ Test status codes, response headers, and upstream request headers:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `working-directory` | Directory to scan for `.httptests` folders | No | `.` |
+| `httptests-directory` | Path to directory containing `.httptests` folder | Yes | - |
 | `python-version` | Python version for test runner | No | `3.x` |
 
 ### Example with options
@@ -206,9 +194,35 @@ Test status codes, response headers, and upstream request headers:
 ```yaml
 - uses: serviceguards-com/httptests-action@v1
   with:
-    working-directory: ./services
+    httptests-directory: ./services/api-gateway
     python-version: '3.11'
 ```
+
+### Testing Multiple Suites
+
+To test multiple `.httptests` directories, use a matrix strategy:
+
+```yaml
+name: HTTPTests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-suite:
+          - ./service-a
+          - ./service-b
+          - ./service-c
+    steps:
+      - uses: actions/checkout@v4
+      - uses: serviceguards-com/httptests-action@v1
+        with:
+          httptests-directory: ${{ matrix.test-suite }}
+```
+
+Each test suite will run in parallel as a separate job with its own isolated Docker environment.
 
 ## Requirements
 
