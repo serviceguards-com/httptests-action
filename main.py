@@ -89,7 +89,7 @@ class IntegrationTests(unittest.TestCase):
                     if headerKey not in headers:
                         print(f"    ✗ Response header missing: {headerKey}")
                         print(f"      Available headers: {', '.join(headers.keys())}")
-                    self.assertTrue(headerKey in headers)
+                        self.fail(f"Response header '{headerKey}' not found in response")
                     print(f"    ✓ Response header present: {headerKey}")
                     self.totalAssertions += 1
                 else:
@@ -98,11 +98,12 @@ class IntegrationTests(unittest.TestCase):
                         print(f"    ✗ Response header missing: {headerKey}")
                         print(f"      Expected value: {expectedValue}")
                         print(f"      Available headers: {', '.join(headers.keys())}")
+                        self.fail(f"Response header '{headerKey}' not found in response")
                     elif headers[headerKey] != expectedValue:
                         print(f"    ✗ Response header mismatch: {headerKey}")
                         print(f"      Expected: {expectedValue}")
                         print(f"      Got: {headers[headerKey]}")
-                    self.assertEqual(headers[headerKey], expectedValue)
+                        self.fail(f"Response header '{headerKey}' has value '{headers[headerKey]}', expected '{expectedValue}'")
                     print(f"    ✓ Response header: {headerKey} = {headers[headerKey]}")
                     self.totalAssertions += 1
 
@@ -128,7 +129,7 @@ class IntegrationTests(unittest.TestCase):
                     if headerKey not in body.get('headers', {}):
                         print(f"    ✗ Request header not forwarded: {headerKey}")
                         print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
-                    self.assertTrue(headerKey in body['headers'])
+                        self.fail(f"Request header '{headerKey}' was not forwarded to upstream")
                     print(f"    ✓ Request header forwarded: {headerKey}")
                     self.totalAssertions += 1
                 elif (len(header) == 2):
@@ -139,7 +140,7 @@ class IntegrationTests(unittest.TestCase):
                         if headerKey in body.get('headers', {}):
                             print(f"    ✗ Request header should be removed but was found: {headerKey}")
                             print(f"      Value: {body['headers'][headerKey]}")
-                        self.assertTrue(headerKey not in body['headers'])
+                            self.fail(f"Request header '{headerKey}' should be removed but was present with value '{body['headers'][headerKey]}'")
                         print(f"    ✓ Request header removed: {headerKey}")
                         self.totalAssertions += 1
                     else:
@@ -147,11 +148,12 @@ class IntegrationTests(unittest.TestCase):
                             print(f"    ✗ Request header missing: {headerKey}")
                             print(f"      Expected value: {expectedValue}")
                             print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
+                            self.fail(f"Request header '{headerKey}' not found in forwarded headers")
                         elif body['headers'][headerKey] != expectedValue:
                             print(f"    ✗ Request header mismatch: {headerKey}")
                             print(f"      Expected: {expectedValue}")
                             print(f"      Got: {body['headers'][headerKey]}")
-                        self.assertEqual(body['headers'][headerKey], expectedValue)
+                            self.fail(f"Request header '{headerKey}' has value '{body['headers'][headerKey]}', expected '{expectedValue}'")
                         print(f"    ✓ Request header: {headerKey} = {body['headers'][headerKey]}")
                         self.totalAssertions += 1
 

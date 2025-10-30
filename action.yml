@@ -47,7 +47,6 @@ runs:
 
         # Ensure generator is available
         gen_script_path="${GITHUB_ACTION_PATH}/generate_docker_compose.py"
-        echo "Using generator: ${gen_script_path}"
 
         status_overall=0
 
@@ -84,11 +83,13 @@ runs:
           fi
 
           echo "🧪 Running tests for ${project_name}"
-          if ! python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}"; then
-            status_overall=$?
+          python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}"
+          test_exit_code=$?
+          if [[ ${test_exit_code} -ne 0 ]]; then
+            status_overall=1
             echo ""
             echo "=== Nginx Logs ==="
-            docker logs httptests_nginx 2>&1 || echo "Could not retrieve nginx logs"
+            docker logs httptests_nginx 2>&1 | grep -Ev "docker-entrypoint\.sh|10-listen-on-ipv6-by-default\.sh" || echo "Could not retrieve nginx logs"
             echo ""
           fi
 
