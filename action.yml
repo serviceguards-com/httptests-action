@@ -28,6 +28,14 @@ runs:
         python -m pip install --upgrade pip -q
         pip install PyYAML requests -q
 
+    - name: Add upstream target headers
+      shell: bash
+      env:
+        HTTPTESTS_DIR: ${{ inputs.httptests-directory }}
+      run: |
+        echo "🔧 Adding X-Upstream-Target headers to nginx configs..."
+        python "${GITHUB_ACTION_PATH}/add_upstream_headers.py" "${HTTPTESTS_DIR}" || true
+
     - name: Generate and run tests
       shell: bash
       env:
