@@ -225,13 +225,20 @@ def request(host, path, method, additionalRequestHeaders, data):
 class CleanTestResult(unittest.TextTestResult):
     def addError(self, test, err):
         """Override to suppress traceback for errors"""
-        super(unittest.TextTestResult, self).addError(test, err)
-        self.stream.writeln("ERROR")
+        # Add to errors list but don't store traceback
+        self.errors.append((test, None))
+        self._mirrorOutput = False
         
     def addFailure(self, test, err):
         """Override to suppress traceback for failures"""
-        super(unittest.TextTestResult, self).addFailure(test, err)
-        self.stream.writeln("FAIL")
+        # Add to failures list but don't store traceback
+        self.failures.append((test, None))
+        self._mirrorOutput = False
+    
+    def printErrorList(self, flavour, errors):
+        """Override to completely suppress error/failure details"""
+        # Don't print anything - our custom error messages are already shown
+        pass
 
 class CleanTestRunner(unittest.TextTestRunner):
     """Test runner that uses CleanTestResult"""
