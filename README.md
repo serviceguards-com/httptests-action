@@ -108,7 +108,14 @@ Verify load balancer behavior, health checks, failover scenarios, and request di
 
 ```
 === Processing suite: ./api-service/.httptests ===
-Running tests for httptests-api-service
+📦 Starting Docker services...
+🧪 Running tests for httptests-api-service
+
+🔍 Waiting for service to be ready (max 60s)...
+  Attempt 1: Service not ready yet (2.0s elapsed)...
+  Attempt 2: Service not ready yet (4.1s elapsed)...
+✓ Service is ready! (took 5.2s)
+
 test_endpoints (__main__.IntegrationTests.test_endpoints) ... ok
   → Testing: GET api.example.com/health
     ✓ Status code: 200 (expected 200)
@@ -120,6 +127,7 @@ test_endpoints (__main__.IntegrationTests.test_endpoints) ... ok
 ============================================================
 Total assertions passed: 5
 ============================================================
+🧹 Cleaning up Docker services...
 ```
 
 ## Documentation

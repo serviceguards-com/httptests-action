@@ -5,6 +5,45 @@ All notable changes to HTTPTests will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-30
+
+### Added
+- **Service Health Check**: Automatic health check with configurable timeout before running tests
+  - Polls service endpoint until ready (default 60s timeout)
+  - Shows progress with attempt counters and elapsed time
+  - Provides troubleshooting steps if service fails to start
+  - New CLI arguments: `--wait-timeout` and `--skip-health-check`
+
+### Improved
+- **Error Logging**: Significantly enhanced error messages throughout
+  - Connection errors now show target URL, host header, and possible causes
+  - Timeout errors clearly indicate slow response times
+  - Status code mismatches show expected vs actual values
+  - Missing headers show available headers for easier debugging
+  - Header value mismatches show expected vs actual values
+  - JSON parsing errors display response content for investigation
+- **Docker Error Handling**: Better visibility into container failures
+  - Automatic container log dumps when tests fail
+  - Shows both nginx and mock container logs
+  - Displays container status on startup failures
+  - Clear error messages for docker-compose generation failures
+- **Progress Indicators**: Added visual feedback with emojis
+  - 📦 Starting Docker services...
+  - 🧪 Running tests...
+  - 🧹 Cleaning up...
+  - ✓/✗ for success/failure states
+
+### Fixed
+- **Connection Refused Error**: Tests now wait for services to be ready before running
+  - Eliminates race condition where tests started before containers were ready
+  - Retry logic with exponential backoff ensures reliable startup
+  - Timeout prevents infinite waiting
+
+### Changed
+- Requests now have 10s timeout to prevent hanging
+- Better error context in all exception handlers
+- More informative test output with detailed assertion failures
+
 ## [1.0.0] - 2025-10-30
 
 ### Added
