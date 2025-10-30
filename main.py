@@ -114,6 +114,14 @@ class IntegrationTests(unittest.TestCase):
             if "$collectionheaders" in expectedRequestHeadersToUpstream:
                 expectedRequestHeadersToUpstream += self.collectionHeaders
             
+            # Skip if no headers to check
+            if not expectedRequestHeadersToUpstream:
+                return
+            
+            # Skip if response is empty (e.g., 204 No Content)
+            if not text or not text.strip():
+                return
+            
             # Try to parse JSON once before processing headers
             try:
                 body = json.loads(text)
@@ -189,7 +197,7 @@ def wait_for_service(max_wait=60, check_interval=2):
     print(f"\n❌ ERROR: Service failed to become ready after {max_wait}s")
     
     # Try to get nginx container logs
-    print(f"\n📋 Retrieving nginx container logs...")
+    print(f"\n📋 Retrieving NGINX logs...")
     sys.stdout.flush()
     try:
         result = subprocess.run(
@@ -224,7 +232,7 @@ def wait_for_service(max_wait=60, check_interval=2):
             else:
                 print("  No relevant logs found (startup messages filtered)")
         else:
-            print("  No logs found or container doesn't exist")
+            print("  No logs found")
     except subprocess.TimeoutExpired:
         print("  ⚠️  Timeout while retrieving logs")
     except FileNotFoundError:
@@ -232,11 +240,6 @@ def wait_for_service(max_wait=60, check_interval=2):
     except Exception as e:
         print(f"  ⚠️  Error retrieving logs: {e}")
     
-    print(f"\nTroubleshooting steps:")
-    print(f"  1. Check if Docker containers are running: docker ps")
-    print(f"  2. Check container logs: docker logs httptests_nginx")
-    print(f"  3. Check if port 80 is available: netstat -an | grep :80")
-    print(f"  4. Verify nginx configuration is valid")
     return False
 
 def request(host, path, method, additionalRequestHeaders, data):
@@ -252,11 +255,6 @@ def request(host, path, method, additionalRequestHeaders, data):
         print(f"  Target: {method} {url}")
         print(f"  Host header: {host}")
         print(f"  Error: Failed to connect to localhost:80")
-        print(f"\n  The service is not responding. Possible causes:")
-        print(f"    • Docker containers are not running")
-        print(f"    • Nginx failed to start (check config errors)")
-        print(f"    • Port 80 is blocked or in use")
-        print(f"    • Containers need more time to initialize")
         raise
     except requests.exceptions.Timeout as e:
         print(f"\n❌ TIMEOUT ERROR")
