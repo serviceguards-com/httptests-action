@@ -14,6 +14,7 @@ Test your APIs, proxies, and microservices in CI/CD with zero configuration. HTT
 - **Multi-Service** - Test complex setups with proxies, APIs, and mock services
 - **CI Ready** - Built specifically for GitHub Actions workflows
 - **Detailed Output** - Clear test results with assertion counts and validation details
+- **Automatic Upstream Tracking** - Auto-injects `X-Upstream-Target` headers for precise proxy validation
 
 ## Quick Start
 
@@ -179,6 +180,48 @@ Test status codes, response headers, and upstream request headers:
   ]
 }
 ```
+
+### Automatic Upstream Target Tracking
+
+HTTPTests automatically adds `X-Upstream-Target` headers to your nginx configurations during test runs. This enables precise validation of proxy destinations.
+
+**What it does:**
+- Scans all `.conf` files in your test directory
+- Detects `proxy_pass` directives
+- Adds `proxy_set_header X-Upstream-Target "<upstream-url>";` after each one
+- Preserves indentation and formatting
+- Skips if header already exists (idempotent)
+
+**Example transformation:**
+
+Before:
+```nginx
+location /api/ {
+    proxy_pass http://backend:5001/;
+    proxy_set_header Host $host;
+}
+```
+
+After (automatic):
+```nginx
+location /api/ {
+    proxy_pass http://backend:5001/;
+    proxy_set_header X-Upstream-Target "backend:5001";
+    proxy_set_header Host $host;
+}
+```
+
+**Test validation:**
+```json
+{
+  "paths": ["/api/users"],
+  "expectedRequestHeadersToUpstream": [
+    ["X-Upstream-Target", "backend:5001"]
+  ]
+}
+```
+
+This ensures your proxy connects to the **exact correct upstream**, even when multiple similar services exist (e.g., `backend:5001`, `backend:9999`, `different-host:5001`).
 
 ## Configuration
 

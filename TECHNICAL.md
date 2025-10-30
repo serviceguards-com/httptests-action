@@ -9,6 +9,7 @@ Reusable GitHub Action that runs integration tests for a specified `.httptests/`
 - 🧹 Automatic cleanup after test execution
 - 📦 Ready for GitHub Marketplace distribution
 - 🔄 Matrix strategy support for testing multiple suites in parallel
+- 🎯 Automatic `X-Upstream-Target` header injection for precise proxy validation
 
 ## Usage
 
@@ -156,11 +157,12 @@ See the main [README.md](README.md) for complete test configuration documentatio
 
 1. **Discovery**: Looks for `.httptests/` folder within the specified directory
 2. **Validation**: Verifies the `.httptests/` directory exists and contains `test.json`
-3. **Generation**: Generates `docker-compose.yml` from `config.yml`
-4. **Build**: Builds the Nginx container from the Dockerfile in the parent directory
-5. **Start**: Starts mock and Nginx services with isolated Docker Compose project name
-6. **Test**: Runs `main.py` against the `test.json` file
-7. **Cleanup**: Tears down containers and removes volumes
+3. **Header Injection**: Automatically adds `X-Upstream-Target` headers to nginx configs for upstream validation
+4. **Generation**: Generates `docker-compose.yml` from `config.yml`
+5. **Build**: Builds the Nginx container from the Dockerfile in the parent directory
+6. **Start**: Starts mock and Nginx services with isolated Docker Compose project name
+7. **Test**: Runs `main.py` against the `test.json` file
+8. **Cleanup**: Tears down containers and removes volumes
 
 ## Generated Docker Compose Structure
 
@@ -209,6 +211,72 @@ services:
 ```
 
 When `additional_ports` are configured, the action automatically creates socat forwarder services that listen on the additional ports and forward traffic to the main mock service. This allows the same service to be accessible on multiple ports using the same network aliases.
+
+## Automatic Upstream Target Header Injection
+
+HTTPTests includes an automatic header injection feature that adds `X-Upstream-Target` headers to your nginx configurations. This enables precise validation that your proxy is connecting to the exact intended upstream, even when multiple similar services exist in the Docker network.
+
+### How It Works
+
+Before building the Docker containers, the action runs `add_upstream_headers.py` which:
+
+1. **Scans** all `.conf` files in your httptests directory
+2. **Detects** `proxy_pass` directives using regex pattern matching
+3. **Extracts** the upstream URL (e.g., `http://backend:5001/`)
+4. **Injects** a `proxy_set_header X-Upstream-Target "<url>";` line immediately after each `proxy_pass`
+5. **Preserves** indentation and formatting
+6. **Skips** if the header already exists (idempotent operation)
+
+### Example
+
+**Before injection:**
+```nginx
+location /api/ {
+    proxy_pass http://backend:5001/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+**After automatic injection:**
+```nginx
+location /api/ {
+    proxy_pass http://backend:5001/;
+    proxy_set_header X-Upstream-Target "backend:5001";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+### Testing Upstream Destinations
+
+Once the header is injected, you can validate it in your tests:
+
+```json
+{
+    "paths": ["/api/users"],
+    "method": "GET",
+    "expectedStatus": 200,
+    "expectedRequestHeadersToUpstream": [
+        ["X-Upstream-Target", "backend:5001"]
+    ]
+}
+```
+
+### Why This Matters
+
+Consider a scenario where multiple upstreams exist:
+- `backend:5001` (correct destination)
+- `backend:9999` (wrong port)
+- `different-host:5001` (wrong host)
+
+All three may respond to HTTP requests, but only the correct one will have the matching `X-Upstream-Target` header value. This guarantees your test validates the **exact proxy destination**, not just "some service responded."
+
+**Script features:**
+- ✅ Idempotent (safe to run multiple times)
+- ✅ Preserves indentation
+- ✅ Handles multiple `proxy_pass` directives per file
+- ✅ Works with any nginx configuration file (`.conf`)
 
 ## Requirements
 
