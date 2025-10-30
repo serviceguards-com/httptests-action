@@ -1,5 +1,5 @@
 name: "HTTPTests Runner"
-description: "Discover .httptests suites, generate docker-compose from config.yml, run services and tests"
+description: "Automated HTTP integration testing with Docker isolation - test APIs, proxies, and microservices in CI/CD"
 author: "HTTPTests"
 branding:
   icon: "check-circle"

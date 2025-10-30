@@ -1,156 +1,227 @@
-# Nginx Integration Test Suite
+# HTTPTests
 
-This project contains an automated integration test suite for testing Nginx proxy configurations and routing behavior.
+> Automated HTTP integration testing for GitHub Actions with Docker isolation
 
-## Overview
+Test your APIs, proxies, and microservices in CI/CD with zero configuration. HTTPTests automatically discovers test suites, spins up Docker environments, and validates your HTTP services.
 
-The test suite validates that Nginx correctly:
-- Routes requests to appropriate upstream services
-- Modifies request headers when proxying to upstream services
-- Returns expected HTTP status codes
-- Handles various request scenarios (GET, POST, large payloads, etc.)
+[![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue?logo=github)](https://github.com/marketplace/actions/httptests-runner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Architecture
+## Features
 
-The test suite consists of three main components:
+- **Zero Configuration** - Drop a `.httptests` folder in your repo and go
+- **Auto-Discovery** - Automatically finds and runs all test suites in your repository
+- **Docker Isolated** - Each test suite runs in its own isolated Docker environment
+- **Multi-Service** - Test complex setups with proxies, APIs, and mock services
+- **CI Ready** - Built specifically for GitHub Actions workflows
+- **Detailed Output** - Clear test results with assertion counts and validation details
 
-### 1. Test Runner (`main.py`)
-A Python unittest-based test runner that:
-- Reads test configurations from `test.json`
-- Makes HTTP requests to the Nginx proxy
-- Validates responses and headers
-- Tracks assertion counts for reporting
+## Quick Start
 
-### 2. Test Configuration (`test.json`)
-A JSON configuration file that defines:
-- **Collection Headers**: Common headers to include in all requests
-- **Hosts**: Different hostnames to test against
-- **Endpoints**: Specific paths and their expected behaviors
-- **Test Parameters**: Expected status codes, headers, request data, etc.
+### 1. Add a test suite to your repository
 
-### 3. Docker Environment (`docker-compose.yml`)
-A containerized test environment with:
-- **Mock Service**: HTTP echo server that responds with request details
-- **Nginx API**: The Nginx proxy being tested (configured via environment variables)
+Create a `.httptests` directory with two files:
 
-## Test Configuration Format
+**`.httptests/config.yml`**
+```yaml
+mock:
+  network_aliases:
+    - backend
 
-The `test.json` file uses the following structure:
+nginx:
+  environment:
+    ENV_VAR: value
+```
 
+**`.httptests/test.json`**
 ```json
 {
-    "collectionHeaders": [
-        ["X-Request-Id"],
-        ["X-Path"],
-        ["X-Verb"],
-        ["X-QS"]
-    ],
-    "hosts": {
-        "api.domain.com": [
-            {
-                "paths": ["/store/product_list"],
-                "method": "GET",
-                "expectedStatus": 200,
-                "additionalRequestHeaders": {"X-Cache-Status": "HIT"},
-                "expectedRequestHeadersToUpstream": [
-                    ["$collectionHeaders"],
-                    ["X-Cache-Status", "HIT"],
-                    ["X-Forwarded-For"],
-                    ["X-Proxy-Pass", "store"]
-                ]
-            }
+  "hosts": {
+    "api.example.com": [
+      {
+        "paths": ["/health"],
+        "method": "GET",
+        "expectedStatus": 200,
+        "expectedResponseHeaders": [
+          ["Content-Type", "application/json"]
         ]
-    }
+      }
+    ]
+  }
 }
 ```
 
-### Configuration Options
+### 2. Add a Dockerfile for your service
 
-- **`collectionHeaders`**: Headers automatically added to all requests
-- **`paths`**: Array of URL paths to test
-- **`method`**: HTTP method (defaults to GET)
-- **`expectedStatus`**: Expected HTTP status code (defaults to 200)
-- **`additionalRequestHeaders`**: Headers to add to the test request
-- **`expectedRequestHeadersToUpstream`**: Headers expected in the upstream request
-- **`data`**: Request body data for POST requests
-- **`generatePayloadSize`**: Generate random data of specified size (bytes)
-- **`sleep`**: Delay between requests (seconds)
+Place a `Dockerfile` in the same directory as `.httptests`:
 
-### Special Header Values
-
-- **`$collectionHeaders`**: Expands to all collection headers
-- **`$deleted`**: Expects the header to be absent from upstream request
-
-## Running the Tests
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.x with `requests` library
-
-### Setup
-
-1. **Start the test environment:**
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Run the tests:**
-   ```bash
-   python main.py
-   ```
-
-### Test Output
-
-The test runner provides detailed output including:
-- Individual test results for each endpoint
-- Status code validations
-- Header presence and value checks
-- Total assertion count
-
-Example output:
-```
-test_endpoints (__main__.IntegrationTests) ... 
-  GET api.domain.com /store/product_list (200) => Test Status Code ... ok
-  GET api.domain.com /store/product_list (200) => Request Headers ... ok
-Total assertions: 15
+```dockerfile
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
 ```
 
-## Test Scenarios
+### 3. Add GitHub Action workflow
 
-The test suite validates various scenarios:
+**`.github/workflows/test.yml`**
+```yaml
+name: HTTPTests
+on: [push, pull_request]
 
-1. **Basic Routing**: Ensures requests reach the correct upstream services
-2. **Header Modification**: Verifies Nginx adds/modifies headers when proxying
-3. **Status Code Handling**: Tests different HTTP status codes (200, 403, 404, 413)
-4. **Request Methods**: Supports GET, POST, and other HTTP methods
-5. **Large Payloads**: Tests handling of large request bodies
-6. **Rate Limiting**: Includes sleep delays to test rate limiting behavior
-7. **Header Deletion**: Ensures certain headers are removed from upstream requests
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: serviceguards-com/httptests-action@v1
+```
 
-## Mock Service
-
-The mock service (`mendhak/http-https-echo`) responds to all requests by echoing back:
-- Request headers
-- Request body
-- Request method and path
-- Other request metadata
-
-This allows the test suite to verify exactly what headers and data Nginx forwards to upstream services.
-
-## Customization
-
-To test different Nginx configurations:
-
-1. **Update `test.json`**: Modify the test cases to match your endpoints
-2. **Update `docker-compose.yml`**: Configure environment variables for your Nginx setup
-3. **Run tests**: Execute `python main.py` to validate your configuration
+That's it! Your HTTP integration tests will now run on every push and pull request.
 
 ## Use Cases
 
-This test suite is ideal for:
-- Validating Nginx proxy configurations
-- Testing API gateway routing rules
-- Verifying header transformation logic
-- Regression testing after Nginx configuration changes
-- Load balancer configuration validation
+### API Testing
+Test REST APIs, GraphQL endpoints, and webhooks with comprehensive assertions on status codes, headers, and response bodies.
+
+### Nginx/Proxy Validation
+Validate reverse proxy configurations, header transformations, routing rules, and upstream forwarding behavior.
+
+### Microservices Testing
+Test service-to-service communication, load balancing, service discovery, and API gateway configurations.
+
+### Load Balancer Testing
+Verify load balancer behavior, health checks, failover scenarios, and request distribution.
+
+## Why HTTPTests?
+
+| Feature | HTTPTests | curl scripts | Postman/Newman | Custom Framework |
+|---------|-----------|--------------|----------------|------------------|
+| **Setup Time** | < 5 minutes | Manual | 15-30 minutes | Hours |
+| **Docker Isolation** | ✅ Built-in | ❌ Manual | ❌ Manual | ❌ Manual |
+| **Auto-Discovery** | ✅ Yes | ❌ No | ❌ No | ⚠️ Maybe |
+| **Multi-Service** | ✅ Yes | ⚠️ Complex | ⚠️ Limited | ⚠️ Custom |
+| **CI Integration** | ✅ Native | ⚠️ Manual | ✅ Yes | ⚠️ Custom |
+| **Learning Curve** | Low | Low | Medium | High |
+
+## Real-World Example
+
+```
+=== Processing suite: ./api-service/.httptests ===
+Running tests for httptests-api-service
+test_endpoints (__main__.IntegrationTests.test_endpoints) ... ok
+  → Testing: GET api.example.com/health
+    ✓ Status code: 200 (expected 200)
+    ✓ Response header: content-type = application/json
+  → Testing: GET api.example.com/users
+    ✓ Status code: 200 (expected 200)
+    ✓ Request header forwarded: x-forwarded-for
+    ✓ Request header: x-api-version = v1
+============================================================
+Total assertions passed: 5
+============================================================
+```
+
+## Documentation
+
+- **[Quick Start Guide](TECHNICAL.md)** - Detailed setup and configuration
+- **[Examples Repository](https://github.com/serviceguards-com/httptests-example)** - Real-world examples for different use cases
+- **[Test Configuration](TECHNICAL.md#test-configuration-format)** - Complete `test.json` reference
+- **[Docker Setup](TECHNICAL.md#configuration-format)** - `config.yml` options
+
+## Examples
+
+Explore real-world examples in the [httptests-example repository](https://github.com/serviceguards-com/httptests-example):
+
+- **[API Testing](https://github.com/serviceguards-com/httptests-example/tree/main/api-testing)** - REST API with CRUD operations
+- **[Nginx Proxy](https://github.com/serviceguards-com/httptests-example/tree/main/nginx-proxy)** - Reverse proxy with header transformation
+- **[Microservices](https://github.com/serviceguards-com/httptests-example/tree/main/microservices)** - Multi-service communication testing
+- **[API Gateway](https://github.com/serviceguards-com/httptests-example/tree/main/api-gateway)** - Auth, rate limiting, and routing
+
+## Advanced Features
+
+### Multiple Test Suites
+HTTPTests automatically discovers and runs all `.httptests` directories:
+
+```
+repo/
+├── service-a/.httptests/
+├── service-b/.httptests/
+└── service-c/.httptests/
+```
+
+Each suite runs in isolation with its own Docker environment.
+
+### Collection Headers
+Define headers once, use them in all tests:
+
+```json
+{
+  "collectionHeaders": [
+    ["X-Request-Id"],
+    ["Authorization"]
+  ],
+  "hosts": {
+    "api.example.com": [...]
+  }
+}
+```
+
+### Request/Response Validation
+Test status codes, response headers, and upstream request headers:
+
+```json
+{
+  "paths": ["/api/users"],
+  "expectedStatus": 200,
+  "expectedResponseHeaders": [
+    ["Content-Type", "application/json"]
+  ],
+  "expectedRequestHeadersToUpstream": [
+    ["X-Forwarded-For"],
+    ["X-Real-IP"]
+  ]
+}
+```
+
+## Configuration
+
+### Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `working-directory` | Directory to scan for `.httptests` folders | No | `.` |
+| `python-version` | Python version for test runner | No | `3.x` |
+
+### Example with options
+
+```yaml
+- uses: serviceguards-com/httptests-action@v1
+  with:
+    working-directory: ./services
+    python-version: '3.11'
+```
+
+## Requirements
+
+- **GitHub Actions runner**: `ubuntu-latest` recommended
+- **Docker**: Available on GitHub's Ubuntu runners by default
+- **Services**: Must have a `Dockerfile` in the parent directory of `.httptests`
+
+## Contributing
+
+Contributions are welcome! Please check out our [Contributing Guide](CONTRIBUTING.md).
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/serviceguards-com/httptests-action/issues)
+- **Documentation**: [Technical Docs](TECHNICAL.md)
+- **Examples**: [httptests-example repository](https://github.com/serviceguards-com/httptests-example)
+
+---
+
+Made with ❤️ for developers who value automated testing
