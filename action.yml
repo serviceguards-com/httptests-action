@@ -70,18 +70,41 @@ runs:
             continue
           fi
 
-          python "${gen_script_path}" \
-            --suite "${suite_dir}" \
-            --output "${compose_file}" > /dev/null 2>&1 || { echo "Compose generation failed"; status_overall=1; continue; }
+          # Generate docker-compose.yml
+          if ! python "${gen_script_path}" --suite "${suite_dir}" --output "${compose_file}" 2>&1; then
+            echo "❌ ERROR: Failed to generate docker-compose.yml"
+            status_overall=1
+            continue
+          fi
 
-          docker compose -f "${compose_file}" -p "${project_name}" up -d --build > /dev/null 2>&1
+          echo "📦 Starting Docker services..."
+          if ! docker compose -f "${compose_file}" -p "${project_name}" up -d --build 2>&1; then
+            echo "❌ ERROR: Failed to start Docker containers"
+            echo "Docker container status:"
+            docker ps -a --filter "name=${project_name}" 2>&1 || true
+            status_overall=1
+            continue
+          fi
 
-          sleep 5
+          echo "🧪 Running tests for ${project_name}"
+          if ! python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}"; then
+            status_overall=$?
+            echo ""
+            echo "❌ Tests failed! Showing container logs for debugging:"
+            echo ""
+            echo "=== Container Status ==="
+            docker ps -a --filter "name=${project_name}" 2>&1 || true
+            echo ""
+            echo "=== Nginx Container Logs ==="
+            docker logs httptests_nginx 2>&1 || echo "Could not retrieve nginx logs"
+            echo ""
+            echo "=== Mock Container Logs ==="
+            docker logs httptests_mock 2>&1 || echo "Could not retrieve mock logs"
+            echo ""
+          fi
 
-          echo "Running tests for ${project_name}"
-          python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}" || status_overall=$?
-
-          docker compose -f "${compose_file}" -p "${project_name}" down -v > /dev/null 2>&1
+          echo "🧹 Cleaning up Docker services..."
+          docker compose -f "${compose_file}" -p "${project_name}" down -v 2>&1 || true
         done
 
         exit ${status_overall}

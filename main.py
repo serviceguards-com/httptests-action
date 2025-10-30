@@ -1,9 +1,10 @@
-from time import sleep
+from time import sleep, time
 import requests
 import json
 import unittest
 import argparse
 from os import urandom
+import sys
 
 
 class IntegrationTests(unittest.TestCase):
@@ -71,6 +72,10 @@ class IntegrationTests(unittest.TestCase):
     # Status Code
     def do_test_status_code(self, test_name, expectedStatus, status_code):
         with self.subTest(msg='%s => Test Status Code' % test_name):
+            if expectedStatus != status_code:
+                print(f"    ✗ Status code mismatch!")
+                print(f"      Expected: {expectedStatus}")
+                print(f"      Got: {status_code}")
             self.assertEqual(expectedStatus, status_code)
             print(f"    ✓ Status code: {status_code} (expected {expectedStatus})")
             self.totalAssertions += 1
@@ -81,11 +86,22 @@ class IntegrationTests(unittest.TestCase):
             for header in expectedResponseHeaders:
                 headerKey = header[0].lower()
                 if (len(header) == 1):
+                    if headerKey not in headers:
+                        print(f"    ✗ Response header missing: {headerKey}")
+                        print(f"      Available headers: {', '.join(headers.keys())}")
                     self.assertTrue(headerKey in headers)
                     print(f"    ✓ Response header present: {headerKey}")
                     self.totalAssertions += 1
                 else:
                     expectedValue = header[1]
+                    if headerKey not in headers:
+                        print(f"    ✗ Response header missing: {headerKey}")
+                        print(f"      Expected value: {expectedValue}")
+                        print(f"      Available headers: {', '.join(headers.keys())}")
+                    elif headers[headerKey] != expectedValue:
+                        print(f"    ✗ Response header mismatch: {headerKey}")
+                        print(f"      Expected: {expectedValue}")
+                        print(f"      Got: {headers[headerKey]}")
                     self.assertEqual(headers[headerKey], expectedValue)
                     print(f"    ✓ Response header: {headerKey} = {headers[headerKey]}")
                     self.totalAssertions += 1
@@ -100,9 +116,18 @@ class IntegrationTests(unittest.TestCase):
                 if headerKey == "$collectionheaders":
                     continue
 
-                body = json.loads(text)
+                try:
+                    body = json.loads(text)
+                except json.JSONDecodeError as e:
+                    print(f"    ✗ Failed to parse response as JSON")
+                    print(f"      Error: {e}")
+                    print(f"      Response text (first 500 chars): {text[:500]}")
+                    raise
 
                 if (len(header) == 1):
+                    if headerKey not in body.get('headers', {}):
+                        print(f"    ✗ Request header not forwarded: {headerKey}")
+                        print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
                     self.assertTrue(headerKey in body['headers'])
                     print(f"    ✓ Request header forwarded: {headerKey}")
                     self.totalAssertions += 1
@@ -111,25 +136,90 @@ class IntegrationTests(unittest.TestCase):
 
                     # Check for deleted headers
                     if expectedValue == "$deleted":
+                        if headerKey in body.get('headers', {}):
+                            print(f"    ✗ Request header should be removed but was found: {headerKey}")
+                            print(f"      Value: {body['headers'][headerKey]}")
                         self.assertTrue(headerKey not in body['headers'])
                         print(f"    ✓ Request header removed: {headerKey}")
                         self.totalAssertions += 1
                     else:
+                        if headerKey not in body.get('headers', {}):
+                            print(f"    ✗ Request header missing: {headerKey}")
+                            print(f"      Expected value: {expectedValue}")
+                            print(f"      Forwarded headers: {', '.join(body.get('headers', {}).keys())}")
+                        elif body['headers'][headerKey] != expectedValue:
+                            print(f"    ✗ Request header mismatch: {headerKey}")
+                            print(f"      Expected: {expectedValue}")
+                            print(f"      Got: {body['headers'][headerKey]}")
                         self.assertEqual(body['headers'][headerKey], expectedValue)
                         print(f"    ✓ Request header: {headerKey} = {body['headers'][headerKey]}")
                         self.totalAssertions += 1
 
+def wait_for_service(max_wait=60, check_interval=2):
+    """Wait for the service to be ready by checking health"""
+    base_url = "http://localhost"
+    start_time = time()
+    attempt = 0
+    
+    print(f"\n🔍 Waiting for service to be ready (max {max_wait}s)...")
+    
+    while time() - start_time < max_wait:
+        attempt += 1
+        try:
+            # Try a simple connection to the service
+            response = requests.get(f"{base_url}/", timeout=2)
+            print(f"✓ Service is ready! (took {time() - start_time:.1f}s)")
+            return True
+        except requests.exceptions.ConnectionError:
+            elapsed = time() - start_time
+            print(f"  Attempt {attempt}: Service not ready yet ({elapsed:.1f}s elapsed)...")
+            sleep(check_interval)
+        except Exception as e:
+            print(f"  Attempt {attempt}: Unexpected error: {e}")
+            sleep(check_interval)
+    
+    print(f"\n❌ ERROR: Service failed to become ready after {max_wait}s")
+    print(f"\nTroubleshooting steps:")
+    print(f"  1. Check if Docker containers are running: docker ps")
+    print(f"  2. Check container logs: docker logs httptests_nginx")
+    print(f"  3. Check if port 80 is available: netstat -an | grep :80")
+    print(f"  4. Verify nginx configuration is valid")
+    return False
+
 def request(host, path, method, additionalRequestHeaders, data):
     headers = {**{'Host': host}, **additionalRequestHeaders}
     base = "http://localhost"
-    r = requests.request(method, '%s%s' % (base, path), headers=headers, data=data)
-    return r
+    url = '%s%s' % (base, path)
+    
+    try:
+        r = requests.request(method, url, headers=headers, data=data, timeout=10)
+        return r
+    except requests.exceptions.ConnectionError as e:
+        print(f"\n❌ CONNECTION ERROR")
+        print(f"  Target: {method} {url}")
+        print(f"  Host header: {host}")
+        print(f"  Error: Failed to connect to localhost:80")
+        print(f"\n  The service is not responding. Possible causes:")
+        print(f"    • Docker containers are not running")
+        print(f"    • Nginx failed to start (check config errors)")
+        print(f"    • Port 80 is blocked or in use")
+        print(f"    • Containers need more time to initialize")
+        raise
+    except requests.exceptions.Timeout as e:
+        print(f"\n❌ TIMEOUT ERROR")
+        print(f"  Target: {method} {url}")
+        print(f"  The service took too long to respond (>10s)")
+        raise
+    except Exception as e:
+        print(f"\n❌ UNEXPECTED ERROR")
+        print(f"  Target: {method} {url}")
+        print(f"  Error: {type(e).__name__}: {e}")
+        raise
 
 # Create single test method
 setattr(IntegrationTests, "test_endpoints", lambda self: self.check())
 
 if __name__ == '__main__':
-    import sys
     parser = argparse.ArgumentParser(description='Run integration tests for HTTP endpoints')
     parser.add_argument(
         '--test-file',
@@ -137,7 +227,24 @@ if __name__ == '__main__':
         default='example/.httptests/test.json',
         help='Path to test.json file (default: example/.httptests/test.json)'
     )
+    parser.add_argument(
+        '--wait-timeout',
+        type=int,
+        default=60,
+        help='Maximum seconds to wait for service to be ready (default: 60)'
+    )
+    parser.add_argument(
+        '--skip-health-check',
+        action='store_true',
+        help='Skip waiting for service health check'
+    )
     args, unittest_args = parser.parse_known_args()
+    
+    # Wait for service to be ready
+    if not args.skip_health_check:
+        if not wait_for_service(max_wait=args.wait_timeout):
+            print("\n❌ Aborting tests - service is not ready")
+            sys.exit(1)
     
     # Set the test file path before running tests
     IntegrationTests.test_file_path = args.test_file
