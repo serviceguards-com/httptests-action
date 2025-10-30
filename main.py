@@ -5,6 +5,7 @@ import unittest
 import argparse
 from os import urandom
 import sys
+import subprocess
 
 
 class IntegrationTests(unittest.TestCase):
@@ -186,6 +187,35 @@ def wait_for_service(max_wait=60, check_interval=2):
             sleep(check_interval)
     
     print(f"\n❌ ERROR: Service failed to become ready after {max_wait}s")
+    
+    # Try to get nginx container logs
+    print(f"\n📋 Retrieving nginx container logs...")
+    sys.stdout.flush()
+    try:
+        result = subprocess.run(
+            ['docker', 'logs', 'httptests_nginx'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.stdout or result.stderr:
+            print(f"\n{'='*60}")
+            print(f"NGINX CONTAINER LOGS:")
+            print(f"{'='*60}")
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
+            print(f"{'='*60}\n")
+        else:
+            print("  No logs found or container doesn't exist")
+    except subprocess.TimeoutExpired:
+        print("  ⚠️  Timeout while retrieving logs")
+    except FileNotFoundError:
+        print("  ⚠️  Docker command not found")
+    except Exception as e:
+        print(f"  ⚠️  Error retrieving logs: {e}")
+    
     print(f"\nTroubleshooting steps:")
     print(f"  1. Check if Docker containers are running: docker ps")
     print(f"  2. Check container logs: docker logs httptests_nginx")
