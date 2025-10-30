@@ -199,14 +199,30 @@ def wait_for_service(max_wait=60, check_interval=2):
             timeout=10
         )
         if result.stdout or result.stderr:
-            print(f"\n{'='*60}")
-            print(f"NGINX CONTAINER LOGS:")
-            print(f"{'='*60}")
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print(result.stderr)
-            print(f"{'='*60}\n")
+            # Filter out docker-entrypoint noise
+            def filter_logs(logs):
+                if not logs:
+                    return ""
+                filtered_lines = []
+                for line in logs.splitlines():
+                    if 'docker-entrypoint.sh' not in line and '10-listen-on-ipv6-by-default.sh' not in line:
+                        filtered_lines.append(line)
+                return '\n'.join(filtered_lines)
+            
+            filtered_stdout = filter_logs(result.stdout)
+            filtered_stderr = filter_logs(result.stderr)
+            
+            if filtered_stdout or filtered_stderr:
+                print(f"\n{'='*60}")
+                print(f"NGINX LOGS:")
+                print(f"{'='*60}")
+                if filtered_stdout:
+                    print(filtered_stdout)
+                if filtered_stderr:
+                    print(filtered_stderr)
+                print(f"{'='*60}\n")
+            else:
+                print("  No relevant logs found (startup messages filtered)")
         else:
             print("  No logs found or container doesn't exist")
     except subprocess.TimeoutExpired:
