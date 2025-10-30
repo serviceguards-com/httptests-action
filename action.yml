@@ -6,10 +6,9 @@ branding:
   color: "green"
 
 inputs:
-  working-directory:
-    description: "Directory to start scanning from"
-    required: false
-    default: "."
+  httptests-directory:
+    description: "Path to the directory containing .httptests folder (e.g., './microservices')"
+    required: true
   python-version:
     description: "Python version to use"
     required: false
@@ -29,72 +28,81 @@ runs:
         python -m pip install --upgrade pip -q
         pip install PyYAML requests -q
 
-    - name: Generate and run suites
+    - name: Generate and run tests
       shell: bash
       env:
-        WORKDIR: ${{ inputs.working-directory }}
+        HTTPTESTS_DIR: ${{ inputs.httptests-directory }}
       run: |
         set -euo pipefail
 
-        scan_root="${WORKDIR}"
-        echo "Scanning for .httptests under: ${scan_root}"
+        parent_dir="${HTTPTESTS_DIR}"
+        suite_dir="${parent_dir}/.httptests"
+        
+        echo "Looking for .httptests in: ${parent_dir}"
 
-        mapfile -t suites < <(find "${scan_root}" -type d -name .httptests | sort)
-        if [[ ${#suites[@]} -eq 0 ]]; then
-          echo "No .httptests directories found under ${scan_root}. Exiting."
+        # Validate parent directory exists
+        if [[ ! -d "${parent_dir}" ]]; then
+          echo "❌ ERROR: Directory not found: ${parent_dir}"
           exit 1
         fi
 
+        # Validate .httptests directory exists
+        if [[ ! -d "${suite_dir}" ]]; then
+          echo "❌ ERROR: .httptests directory not found in ${parent_dir}"
+          exit 1
+        fi
+
+        echo "Processing .httptests directory: ${suite_dir}"
+
+        test_file="${suite_dir}/test.json"
+        if [[ ! -f "${test_file}" ]]; then
+          echo "❌ ERROR: Missing test.json in ${suite_dir}"
+          exit 1
+        fi
+
+        # Generate project name from parent directory
+        suite_parent="${parent_dir}"
+        suffix="$(echo "${suite_parent}" | tr '/\\' '_' | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]' | sed 's/[_-]*$//' | sed 's/^[_-]*//')"
+        if [[ -z "${suffix}" || "${suffix}" == "." ]]; then
+          project_name="httptests"
+        else
+          project_name="httptests-${suffix}"
+        fi
+
+        echo "Project name: ${project_name}"
+
         # Ensure generator is available
         gen_script_path="${GITHUB_ACTION_PATH}/generate_docker_compose.py"
+        compose_file="${suite_dir}/docker-compose.yml"
 
-        status_overall=0
+        # Generate docker-compose.yml
+        echo "Generating docker-compose.yml..."
+        if ! python "${gen_script_path}" --suite "${suite_dir}" --output "${compose_file}" >/dev/null 2>&1; then
+          echo "❌ ERROR: Failed to generate test configuration"
+          exit 1
+        fi
 
-        for suite_dir in "${suites[@]}"; do
-          echo -e "\n=== Processing suite: ${suite_dir} ==="
-          suite_parent="$(dirname "${suite_dir}")"
-          compose_file="${suite_dir}/docker-compose.yml"
-          test_file="${suite_dir}/test.json"
-          
-          # Generate project name, handling edge cases
-          suffix="$(echo "${suite_parent}" | tr '/\\' '_' | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]' | sed 's/[_-]*$//' | sed 's/^[_-]*//')"
-          if [[ -z "${suffix}" || "${suffix}" == "." ]]; then
-            project_name="httptests"
-          else
-            project_name="httptests-${suffix}"
-          fi
+        # Start Docker environment
+        echo "Starting Docker environment..."
+        if ! docker compose -f "${compose_file}" -p "${project_name}" up -d --build >/dev/null 2>&1; then
+          echo "❌ ERROR: Failed to start test environment"
+          exit 1
+        fi
 
-          if [[ ! -f "${test_file}" ]]; then
-            echo "Warning: Missing test.json in ${suite_dir}, skipping."
-            continue
-          fi
+        # Run tests
+        echo "🧪 Running tests for ${project_name}"
+        python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}"
+        test_exit_code=$?
+        
+        if [[ ${test_exit_code} -ne 0 ]]; then
+          echo ""
+          echo "=== Nginx Logs ==="
+          docker logs httptests_nginx 2>&1 | grep -Ev "docker-entrypoint\.sh|10-listen-on-ipv6-by-default\.sh" || echo "Could not retrieve nginx logs"
+          echo ""
+        fi
 
-          # Generate docker-compose.yml
-          if ! python "${gen_script_path}" --suite "${suite_dir}" --output "${compose_file}" >/dev/null 2>&1; then
-            echo "❌ ERROR: Failed to generate test configuration"
-            status_overall=1
-            continue
-          fi
+        # Cleanup
+        docker compose -f "${compose_file}" -p "${project_name}" down -v >/dev/null 2>&1 || true
 
-          if ! docker compose -f "${compose_file}" -p "${project_name}" up -d --build >/dev/null 2>&1; then
-            echo "❌ ERROR: Failed to start test environment"
-            status_overall=1
-            continue
-          fi
-
-          echo "🧪 Running tests for ${project_name}"
-          python "${GITHUB_ACTION_PATH}/main.py" --test-file "${test_file}"
-          test_exit_code=$?
-          if [[ ${test_exit_code} -ne 0 ]]; then
-            status_overall=1
-            echo ""
-            echo "=== Nginx Logs ==="
-            docker logs httptests_nginx 2>&1 | grep -Ev "docker-entrypoint\.sh|10-listen-on-ipv6-by-default\.sh" || echo "Could not retrieve nginx logs"
-            echo ""
-          fi
-
-          docker compose -f "${compose_file}" -p "${project_name}" down -v >/dev/null 2>&1 || true
-        done
-
-        exit ${status_overall}
+        exit ${test_exit_code}
 
