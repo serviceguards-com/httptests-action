@@ -221,6 +221,22 @@ def request(host, path, method, additionalRequestHeaders, data):
         print(f"  Error: {type(e).__name__}: {e}")
         raise
 
+# Custom test result class that suppresses tracebacks
+class CleanTestResult(unittest.TextTestResult):
+    def addError(self, test, err):
+        """Override to suppress traceback for errors"""
+        super(unittest.TextTestResult, self).addError(test, err)
+        self.stream.writeln("ERROR")
+        
+    def addFailure(self, test, err):
+        """Override to suppress traceback for failures"""
+        super(unittest.TextTestResult, self).addFailure(test, err)
+        self.stream.writeln("FAIL")
+
+class CleanTestRunner(unittest.TextTestRunner):
+    """Test runner that uses CleanTestResult"""
+    resultclass = CleanTestResult
+
 # Create single test method
 setattr(IntegrationTests, "test_endpoints", lambda self: self.check())
 
@@ -254,6 +270,11 @@ if __name__ == '__main__':
     # Set the test file path before running tests
     IntegrationTests.test_file_path = args.test_file
     
-    # Pass remaining args to unittest
-    sys.argv = ['main.py'] + unittest_args
-    unittest.main(verbosity=2)
+    # Run tests with custom runner that suppresses tracebacks
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromTestCase(IntegrationTests)
+    runner = CleanTestRunner(verbosity=2)
+    result = runner.run(suite)
+    
+    # Exit with appropriate code
+    sys.exit(0 if result.wasSuccessful() else 1)
