@@ -133,10 +133,8 @@ Total assertions passed: 5
 
 ## Documentation
 
-- **[Quick Start Guide](TECHNICAL.md)** - Detailed setup and configuration
+- **[Official Documentation](https://www.httptests.com)** - Complete setup, configuration, and reference
 - **[Examples Repository](https://github.com/serviceguards-com/httptests-example)** - Real-world examples for different use cases
-- **[Test Configuration](TECHNICAL.md#test-configuration-format)** - Complete `test.json` reference
-- **[Docker Setup](TECHNICAL.md#configuration-format)** - `config.yml` options
 
 ## Examples
 
@@ -284,7 +282,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/serviceguards-com/httptests-action/issues)
-- **Documentation**: [Technical Docs](TECHNICAL.md)
+- **Documentation**: [https://www.httptests.com](https://www.httptests.com)
 - **Examples**: [httptests-example repository](https://github.com/serviceguards-com/httptests-example)
 
 ---
