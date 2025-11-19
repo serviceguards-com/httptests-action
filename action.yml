@@ -1,6 +1,6 @@
-name: "HTTPTests Runner"
-description: "Automated HTTP integration testing with Docker isolation - test APIs, proxies, and microservices in CI/CD"
-author: "HTTPTests"
+name: "HTTP Integration Tests"
+description: "Automated HTTP integration testing - test proxies (NGINX Apache, Caddy ...) and microservices in CI/CD"
+author: "ServiceGuards.com"
 branding:
   icon: "check-circle"
   color: "green"
