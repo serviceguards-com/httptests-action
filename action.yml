@@ -1,5 +1,5 @@
 name: "HTTP Integration Tests"
-description: "Automated HTTP integration testing - test proxies (NGINX Apache, Caddy ...) and microservices in CI/CD"
+description: "Automated HTTP integration testing - test proxies (NGINX, Apache, Caddy ...) and microservices in CI/CD"
 author: "ServiceGuards.com"
 branding:
   icon: "check-circle"
