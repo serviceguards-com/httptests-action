@@ -17,14 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Guide
 Before (v1.x):
 ```yaml
-- uses: serviceguards-com/httptests-action@v1
+- uses: serviceguards-com/httptests-action@latest1
   with:
     working-directory: ./services
 ```
 
 After (v2.0):
 ```yaml
-- uses: serviceguards-com/httptests-action@v2
+- uses: serviceguards-com/httptests-action@latest2
   with:
     httptests-directory: ./services/api-gateway
 ```
@@ -39,7 +39,7 @@ strategy:
       - ./service-a
       - ./service-b
 steps:
-  - uses: serviceguards-com/httptests-action@v2
+  - uses: serviceguards-com/httptests-action@latest2
     with:
       httptests-directory: ${{ matrix.test-suite }}
 ```

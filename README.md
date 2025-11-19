@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: serviceguards-com/httptests-action@v1
+      - uses: serviceguards-com/httptests-action@latest1
         with:
           httptests-directory: .
 ```
@@ -233,7 +233,7 @@ This ensures your proxy connects to the **exact correct upstream**, even when mu
 ### Example with options
 
 ```yaml
-- uses: serviceguards-com/httptests-action@v1
+- uses: serviceguards-com/httptests-action@latest1
   with:
     httptests-directory: ./services/api-gateway
     python-version: '3.11'
@@ -258,7 +258,7 @@ jobs:
           - ./service-c
     steps:
       - uses: actions/checkout@v4
-      - uses: serviceguards-com/httptests-action@v1
+      - uses: serviceguards-com/httptests-action@latest1
         with:
           httptests-directory: ${{ matrix.test-suite }}
 ```
