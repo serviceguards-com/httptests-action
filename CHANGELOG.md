@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Guide
 Before (v1.x):
 ```yaml
-- uses: serviceguards-com/httptests-action@latest1
+- uses: serviceguards-com/httptests-action@latest
   with:
     working-directory: ./services
 ```
